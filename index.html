@@ -44,6 +44,10 @@
           <input type="text" id="add-isbn-manual" placeholder="vagy ISBN kézzel…" inputmode="numeric" />
           <button class="btn btn-ghost" id="add-isbn-go">Keresés</button>
         </div>
+        <label class="file-row">
+          <span>📁 Vagy kép feltöltése a vonalkódról</span>
+          <input type="file" id="add-file" accept="image/*" capture="environment" hidden />
+        </label>
 
         <div id="add-result" class="result" hidden>
           <div class="book-preview">
@@ -85,6 +89,10 @@
           <input type="text" id="sell-isbn-manual" placeholder="vagy ISBN kézzel…" inputmode="numeric" />
           <button class="btn btn-ghost" id="sell-isbn-go">Eladás</button>
         </div>
+        <label class="file-row">
+          <span>📁 Vagy kép feltöltése a vonalkódról</span>
+          <input type="file" id="sell-file" accept="image/*" capture="environment" hidden />
+        </label>
 
         <div id="sell-status" class="status" hidden></div>
       </div>

@@ -107,7 +107,7 @@ async function startScanner(which, onDecoded) {
 
   let scanner;
   try {
-    scanner = new Html5Qrcode(readerId);
+    scanner = new Html5Qrcode(readerId, /* verbose */ false);
   } catch (e) {
     showStatus(`${which}-status`, "Nem sikerült létrehozni az olvasót: " + (e.message || e), "error");
     scannerEl.hidden = true;
@@ -115,26 +115,64 @@ async function startScanner(which, onDecoded) {
   }
   scanners[which] = scanner;
 
-  const config = {
-    fps: 10,
-    qrbox: { width: 260, height: 140 },
-    aspectRatio: 1.6,
+  // Responsive scan box — wide rectangle, ~80% of the smaller side
+  const qrboxFn = (w, h) => {
+    const minSide = Math.min(w, h);
+    const boxW = Math.floor(Math.min(w * 0.9, 400));
+    const boxH = Math.floor(Math.min(minSide * 0.55, 180));
+    return { width: boxW, height: boxH };
   };
+
+  const config = {
+    fps: 15,
+    qrbox: qrboxFn,
+    aspectRatio: 1.777,
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+  };
+
+  showStatus(`${which}-status`, "Olvasás folyamatban… tartsd a vonalkódot a keretbe.", "info");
 
   try {
     await scanner.start(
       { facingMode: "environment" },
       config,
       (decoded) => {
+        clearStatus(`${which}-status`);
         stopScanner(which).then(() => onDecoded(decoded));
       },
-      () => { /* ignore per-frame errors */ }
+      () => { /* per-frame "not found" — ignore */ }
     );
   } catch (e) {
     const msg = e && (e.message || e.name || String(e));
-    showStatus(`${which}-status`, "Nem sikerült a kamerát megnyitni: " + msg, "error");
-    scannerEl.hidden = true;
-    scanners[which] = null;
+    // Try fallback: any camera (laptops often have only "user")
+    try {
+      await scanner.start(
+        true, // use any camera
+        config,
+        (decoded) => {
+          clearStatus(`${which}-status`);
+          stopScanner(which).then(() => onDecoded(decoded));
+        },
+        () => {}
+      );
+    } catch (e2) {
+      showStatus(`${which}-status`, "Nem sikerült a kamerát megnyitni: " + (e2.message || msg), "error");
+      scannerEl.hidden = true;
+      scanners[which] = null;
+    }
+  }
+}
+
+async function scanFile(which, file, onDecoded) {
+  showStatus(`${which}-status`, "Kép elemzése…", "info");
+  try {
+    const tmp = new Html5Qrcode(`${which}-reader`, false);
+    const result = await tmp.scanFile(file, /* showImage */ false);
+    try { await tmp.clear(); } catch {}
+    clearStatus(`${which}-status`);
+    onDecoded(result);
+  } catch (e) {
+    showStatus(`${which}-status`, "Nem találtam vonalkódot a képen. Próbálj élesebb / közelebbi képet.", "error");
   }
 }
 
@@ -175,6 +213,13 @@ addEls.scanBtn.addEventListener("click", () => {
   );
 });
 addEls.cancel.addEventListener("click", () => stopScanner("add"));
+
+document.getElementById("add-file").addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  await scanFile("add", file, handleAddIsbn);
+  e.target.value = "";
+});
 addEls.manualGo.addEventListener("click", () => {
   const isbn = addEls.manualInput.value.trim();
   if (isbn) handleAddIsbn(isbn);
@@ -255,6 +300,13 @@ sellEls.scanBtn.addEventListener("click", () => {
   );
 });
 sellEls.cancel.addEventListener("click", () => stopScanner("sell"));
+
+document.getElementById("sell-file").addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  await scanFile("sell", file, handleSellIsbn);
+  e.target.value = "";
+});
 sellEls.manualGo.addEventListener("click", () => {
   const isbn = sellEls.manualInput.value.trim();
   if (isbn) handleSellIsbn(isbn);
