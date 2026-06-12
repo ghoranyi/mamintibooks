@@ -55,12 +55,31 @@ function clearStatus(elId) {
   document.getElementById(elId).hidden = true;
 }
 
-// ---------- Google Books lookup ----------
+// ---------- Book lookup (Google Books → Open Library fallback) ----------
 async function lookupBook(isbn) {
   const cleanIsbn = isbn.replace(/[^0-9Xx]/g, "");
-  const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(cleanIsbn)}`;
+  // Try Google Books first
+  try {
+    const book = await lookupGoogleBooks(cleanIsbn);
+    if (book) return book;
+  } catch (e) {
+    console.warn("Google Books failed, trying Open Library:", e);
+  }
+  // Fall back to Open Library
+  try {
+    const book = await lookupOpenLibrary(cleanIsbn);
+    if (book) return book;
+  } catch (e) {
+    console.warn("Open Library failed:", e);
+    throw e;
+  }
+  return null;
+}
+
+async function lookupGoogleBooks(isbn) {
+  const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(isbn)}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error("Hálózati hiba");
+  if (!res.ok) throw new Error(`Google Books HTTP ${res.status}`);
   const data = await res.json();
   if (!data.items || data.items.length === 0) return null;
   const v = data.items[0].volumeInfo || {};
@@ -68,12 +87,33 @@ async function lookupBook(isbn) {
     (v.imageLinks && (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail)) ||
     "";
   return {
-    isbn: cleanIsbn,
+    isbn,
     title: v.title || "Ismeretlen cím",
     authors: (v.authors || []).join(", "),
     publisher: v.publisher || "",
     publishedDate: v.publishedDate || "",
     cover: cover.replace("http://", "https://"),
+    source: "google",
+  };
+}
+
+async function lookupOpenLibrary(isbn) {
+  const url = `https://openlibrary.org/api/books?bibkeys=ISBN:${encodeURIComponent(isbn)}&format=json&jscmd=data`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Open Library HTTP ${res.status}`);
+  const data = await res.json();
+  const entry = data[`ISBN:${isbn}`];
+  if (!entry) return null;
+  return {
+    isbn,
+    title: entry.title || "Ismeretlen cím",
+    authors: (entry.authors || []).map((a) => a.name).join(", "),
+    publisher: (entry.publishers || []).map((p) => p.name).join(", "),
+    publishedDate: entry.publish_date || "",
+    cover:
+      (entry.cover && (entry.cover.medium || entry.cover.small || entry.cover.large)) ||
+      `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg`,
+    source: "openlibrary",
   };
 }
 
