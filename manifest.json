@@ -1,0 +1,9 @@
+{
+  "name": "Maminti Kucko Készlet",
+  "short_name": "Maminti",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FFFCF7",
+  "theme_color": "#F4C2CC",
+  "icons": []
+}

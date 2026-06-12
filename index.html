@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#FFFCF7" />
+  <title>Maminti Kucko · Készlet</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo-mark" aria-hidden="true">
+      <span class="dot dot-pink"></span>
+      <span class="dot dot-green"></span>
+      <span class="dot dot-pink"></span>
+    </div>
+    <h1>Maminti Kucko</h1>
+    <p class="subtitle">Könyv készlet</p>
+  </header>
+
+  <nav class="tab-bar" role="tablist">
+    <button class="tab active" data-tab="add" role="tab">＋ Új könyv</button>
+    <button class="tab" data-tab="sell" role="tab">🛍️ Eladás</button>
+    <button class="tab" data-tab="inventory" role="tab">📚 Készlet</button>
+  </nav>
+
+  <main>
+    <!-- ADD TAB -->
+    <section class="panel active" id="panel-add">
+      <div class="card">
+        <h2>Új könyv beérkezett</h2>
+        <p class="hint">Olvasd be a könyv vonalkódját, majd add meg a darabszámot.</p>
+
+        <button class="btn btn-primary" id="add-scan-btn">📷 Vonalkód olvasása</button>
+        <div class="scanner" id="add-scanner" hidden>
+          <div id="add-reader"></div>
+          <button class="btn btn-ghost" id="add-cancel">Mégse</button>
+        </div>
+
+        <div class="manual-row">
+          <input type="text" id="add-isbn-manual" placeholder="vagy ISBN kézzel…" inputmode="numeric" />
+          <button class="btn btn-ghost" id="add-isbn-go">Keresés</button>
+        </div>
+
+        <div id="add-result" class="result" hidden>
+          <div class="book-preview">
+            <img id="add-cover" alt="" />
+            <div class="book-meta">
+              <strong id="add-title"></strong>
+              <span id="add-authors"></span>
+              <span id="add-isbn"></span>
+            </div>
+          </div>
+          <label class="qty-label">
+            Darabszám
+            <div class="qty-stepper">
+              <button class="step" id="add-minus">−</button>
+              <input type="number" id="add-qty" value="1" min="1" />
+              <button class="step" id="add-plus">＋</button>
+            </div>
+          </label>
+          <button class="btn btn-primary" id="add-save">✓ Hozzáadás a készlethez</button>
+        </div>
+
+        <div id="add-status" class="status" hidden></div>
+      </div>
+    </section>
+
+    <!-- SELL TAB -->
+    <section class="panel" id="panel-sell">
+      <div class="card">
+        <h2>Könyv eladása</h2>
+        <p class="hint">Olvasd be a vonalkódot — egy darab levonásra kerül a készletből.</p>
+
+        <button class="btn btn-primary" id="sell-scan-btn">📷 Vonalkód olvasása</button>
+        <div class="scanner" id="sell-scanner" hidden>
+          <div id="sell-reader"></div>
+          <button class="btn btn-ghost" id="sell-cancel">Mégse</button>
+        </div>
+
+        <div class="manual-row">
+          <input type="text" id="sell-isbn-manual" placeholder="vagy ISBN kézzel…" inputmode="numeric" />
+          <button class="btn btn-ghost" id="sell-isbn-go">Eladás</button>
+        </div>
+
+        <div id="sell-status" class="status" hidden></div>
+      </div>
+    </section>
+
+    <!-- INVENTORY TAB -->
+    <section class="panel" id="panel-inventory">
+      <div class="card">
+        <h2>Készlet</h2>
+        <div class="inv-toolbar">
+          <input type="search" id="inv-search" placeholder="Keresés cím, szerző, ISBN…" />
+          <button class="btn btn-ghost" id="inv-export">⬇ Export</button>
+        </div>
+        <div id="inv-summary" class="summary"></div>
+        <ul id="inv-list" class="inv-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
