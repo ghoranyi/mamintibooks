@@ -83,26 +83,42 @@ const scanners = { add: null, sell: null };
 async function startScanner(which, onDecoded) {
   const readerId = `${which}-reader`;
   const scannerEl = document.getElementById(`${which}-scanner`);
+
+  // Pre-flight checks with visible errors
+  if (typeof Html5Qrcode === "undefined") {
+    showStatus(`${which}-status`, "A vonalkód-olvasó könyvtár nem töltődött be. Ellenőrizd az internetkapcsolatot, majd frissíts.", "error");
+    return;
+  }
+  if (!window.isSecureContext) {
+    showStatus(`${which}-status`, "A kamera csak HTTPS-en (vagy localhost-on) érhető el. Nyisd meg az oldalt HTTPS URL-en.", "error");
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showStatus(`${which}-status`, "Ez a böngésző nem támogatja a kamerát.", "error");
+    return;
+  }
+
   scannerEl.hidden = false;
 
   if (scanners[which]) {
     await stopScanner(which);
+    scannerEl.hidden = false;
   }
 
-  const scanner = new Html5Qrcode(readerId);
+  let scanner;
+  try {
+    scanner = new Html5Qrcode(readerId);
+  } catch (e) {
+    showStatus(`${which}-status`, "Nem sikerült létrehozni az olvasót: " + (e.message || e), "error");
+    scannerEl.hidden = true;
+    return;
+  }
   scanners[which] = scanner;
 
   const config = {
     fps: 10,
     qrbox: { width: 260, height: 140 },
     aspectRatio: 1.6,
-    formatsToSupport: [
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A,
-      Html5QrcodeSupportedFormats.UPC_E,
-      Html5QrcodeSupportedFormats.CODE_128,
-    ],
   };
 
   try {
@@ -110,14 +126,15 @@ async function startScanner(which, onDecoded) {
       { facingMode: "environment" },
       config,
       (decoded) => {
-        // Debounce — stop and forward
         stopScanner(which).then(() => onDecoded(decoded));
       },
       () => { /* ignore per-frame errors */ }
     );
   } catch (e) {
-    showStatus(`${which}-status`, "Nem sikerült a kamerát megnyitni: " + (e.message || e), "error");
+    const msg = e && (e.message || e.name || String(e));
+    showStatus(`${which}-status`, "Nem sikerült a kamerát megnyitni: " + msg, "error");
     scannerEl.hidden = true;
+    scanners[which] = null;
   }
 }
 
@@ -153,7 +170,9 @@ let pendingAddBook = null;
 
 addEls.scanBtn.addEventListener("click", () => {
   clearStatus("add-status");
-  startScanner("add", handleAddIsbn);
+  startScanner("add", handleAddIsbn).catch((e) =>
+    showStatus("add-status", "Hiba: " + (e.message || e), "error")
+  );
 });
 addEls.cancel.addEventListener("click", () => stopScanner("add"));
 addEls.manualGo.addEventListener("click", () => {
@@ -231,7 +250,9 @@ const sellEls = {
 
 sellEls.scanBtn.addEventListener("click", () => {
   clearStatus("sell-status");
-  startScanner("sell", handleSellIsbn);
+  startScanner("sell", handleSellIsbn).catch((e) =>
+    showStatus("sell-status", "Hiba: " + (e.message || e), "error")
+  );
 });
 sellEls.cancel.addEventListener("click", () => stopScanner("sell"));
 sellEls.manualGo.addEventListener("click", () => {
