@@ -66,6 +66,17 @@
               <button class="step" id="add-plus">＋</button>
             </div>
           </label>
+
+          <label class="price-label">
+            Bruttó ár (Ft)
+            <input type="number" id="add-price" min="0" step="1" inputmode="numeric" placeholder="pl. 2990" />
+          </label>
+          <div id="add-vat" class="vat-breakdown" hidden>
+            <div><span>Nettó ár:</span> <strong id="vat-net"></strong></div>
+            <div><span>ÁFA (5%):</span> <strong id="vat-amount"></strong></div>
+            <div class="vat-gross"><span>Bruttó:</span> <strong id="vat-gross"></strong></div>
+          </div>
+
           <button class="btn btn-primary" id="add-save">✓ Hozzáadás a készlethez</button>
         </div>
 

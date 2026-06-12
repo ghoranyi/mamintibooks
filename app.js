@@ -241,8 +241,32 @@ const addEls = {
   qty: document.getElementById("add-qty"),
   plus: document.getElementById("add-plus"),
   minus: document.getElementById("add-minus"),
+  price: document.getElementById("add-price"),
+  vatBox: document.getElementById("add-vat"),
+  vatNet: document.getElementById("vat-net"),
+  vatAmount: document.getElementById("vat-amount"),
+  vatGross: document.getElementById("vat-gross"),
   save: document.getElementById("add-save"),
 };
+
+const VAT_RATE = 0.05; // Hungarian books: 5% ÁFA
+const HUF = (n) =>
+  Math.round(n).toLocaleString("hu-HU", { maximumFractionDigits: 0 }) + " Ft";
+
+function updateVatBreakdown() {
+  const gross = parseFloat(addEls.price.value);
+  if (!gross || gross <= 0) {
+    addEls.vatBox.hidden = true;
+    return;
+  }
+  const net = gross / (1 + VAT_RATE);
+  const vat = gross - net;
+  addEls.vatNet.textContent = HUF(net);
+  addEls.vatAmount.textContent = HUF(vat);
+  addEls.vatGross.textContent = HUF(gross);
+  addEls.vatBox.hidden = false;
+}
+addEls.price.addEventListener("input", updateVatBreakdown);
 
 let pendingAddBook = null;
 
@@ -278,22 +302,39 @@ addEls.minus.addEventListener("click", () => {
 addEls.save.addEventListener("click", () => {
   if (!pendingAddBook) return;
   const qty = Math.max(1, parseInt(addEls.qty.value || "1", 10));
+  const priceRaw = parseFloat(addEls.price.value);
+  const priceGross = priceRaw > 0 ? Math.round(priceRaw) : null;
+
   const inv = loadInventory();
   const existing = inv[pendingAddBook.isbn];
   if (existing) {
-    existing.qty += qty;
-    // refresh metadata in case it had stale info
-    Object.assign(existing, pendingAddBook, { qty: existing.qty });
+    const newQty = existing.qty + qty;
+    Object.assign(existing, pendingAddBook, { qty: newQty });
+    if (priceGross != null) existing.priceGross = priceGross;
   } else {
-    inv[pendingAddBook.isbn] = { ...pendingAddBook, qty, addedAt: Date.now() };
+    inv[pendingAddBook.isbn] = {
+      ...pendingAddBook,
+      qty,
+      priceGross,
+      addedAt: Date.now(),
+    };
   }
   saveInventory(inv);
+
+  const saved = inv[pendingAddBook.isbn];
+  const priceMsg = saved.priceGross ? ` · ${HUF(saved.priceGross)}` : "";
   toast(`+${qty} db hozzáadva`);
-  showStatus("add-status", `${pendingAddBook.title} – készleten: ${inv[pendingAddBook.isbn].qty} db`, "success");
+  showStatus(
+    "add-status",
+    `${pendingAddBook.title} – készleten: ${saved.qty} db${priceMsg}`,
+    "success"
+  );
   addEls.result.hidden = true;
   pendingAddBook = null;
   addEls.manualInput.value = "";
   addEls.qty.value = 1;
+  addEls.price.value = "";
+  addEls.vatBox.hidden = true;
 });
 
 async function handleAddIsbn(isbn) {
@@ -319,6 +360,11 @@ async function handleAddIsbn(isbn) {
     addEls.authors.textContent = pendingAddBook.authors || "—";
     addEls.isbn.textContent = "ISBN: " + pendingAddBook.isbn;
     addEls.qty.value = 1;
+
+    const existing = loadInventory()[pendingAddBook.isbn];
+    addEls.price.value = existing && existing.priceGross ? existing.priceGross : "";
+    updateVatBreakdown();
+
     addEls.result.hidden = false;
   } catch (e) {
     showStatus("add-status", "Hiba a kereséskor: " + (e.message || e), "error");
@@ -418,12 +464,16 @@ function renderInventory() {
   for (const b of filtered) {
     const li = document.createElement("li");
     li.className = "inv-item";
+    const priceLine = b.priceGross
+      ? `<div class="i">${HUF(b.priceGross)} (br.)</div>`
+      : "";
     li.innerHTML = `
       <img src="${b.cover || transparentPixel()}" alt="" onerror="this.src='${transparentPixel()}'" />
       <div class="info">
         <div class="t">${escapeHtml(b.title)}</div>
         <div class="a">${escapeHtml(b.authors || "—")}</div>
         <div class="i">${escapeHtml(b.isbn)}</div>
+        ${priceLine}
       </div>
       <div class="qty-badge ${b.qty <= 0 ? "zero" : ""}">${b.qty}</div>
     `;
@@ -433,9 +483,12 @@ function renderInventory() {
 
 function exportInventory() {
   const inv = loadInventory();
-  const rows = [["ISBN", "Cím", "Szerző", "Darab"]];
+  const rows = [["ISBN", "Cím", "Szerző", "Darab", "Bruttó (Ft)", "Nettó (Ft)", "ÁFA 5% (Ft)"]];
   for (const b of Object.values(inv)) {
-    rows.push([b.isbn, b.title, b.authors || "", b.qty]);
+    const gross = b.priceGross || "";
+    const net = gross ? Math.round(gross / (1 + VAT_RATE)) : "";
+    const vat = gross ? gross - net : "";
+    rows.push([b.isbn, b.title, b.authors || "", b.qty, gross, net, vat]);
   }
   const csv = rows
     .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
